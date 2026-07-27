@@ -7,7 +7,7 @@ import os;
 import unicodedata;
 import from datetime { datetime, timezone }
 import from jaclang.byllm.lib { Model }
-import from ingest.source { Workbook, Sheet, Column }
+import from ingest.source { Workbook, Sheet, Column, HasSheet, HasColumn }
 import from model.proposal {
     FieldType,
     Proposal,
@@ -21,7 +21,8 @@ import from model.proposal {
     RelatesTo
 }
 
-glob llm: Model = Model(
+# typed `any` (not Model) so the test annex can rebind it to MockLLM
+glob llm: any = Model(
          model_name=os.environ.get("BYLLM_DEFAULT_MODEL", "gpt-4o-mini")
      );
 

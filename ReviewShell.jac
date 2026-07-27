@@ -48,17 +48,18 @@ def:pub ReviewShell -> JsxElement {
     }
 
     def handleFile(e: ChangeEvent) {
-        files = e.target.files;
+        # browser file objects have no Jac stubs: any-typed on purpose
+        files: any = e.target.files;
         if not files {
             return;
         }
-        f = files[0];
+        f: any = files[0];
         if not f {
             return;
         }
         uploading = True;
         error = "";
-        reader = new(FileReader);
+        reader: any = new(FileReader);  # jac:ignore[E1053]
         reader.onload = lambda { finishUpload(String(f.name), String(reader.result)); };
         reader.onerror = lambda {
             uploading = False;
@@ -85,6 +86,21 @@ def:pub ReviewShell -> JsxElement {
 
     async def openProposal(checksum: str) {
         current = await proposal_view(checksum);
+    }
+
+    # precomputed so the optional narrows via isinstance - the type checker
+    # does not narrow `current` inside a trailing JSX ternary (E1099)
+    c = current;
+    proposalSection: any = None;
+    if isinstance(c, ProposalView) {
+        proposalSection = <section className="flex flex-col gap-4">
+            <h2 className="text-xl font-semibold">
+                {"2 · Modelo propuesto - revísalo antes de generar"}
+            </h2>
+            {for entity in c.entities {
+                <EntityCard key={entity.source_sheet} entity={entity}/>
+            }}
+        </section>;
     }
 
     return
@@ -138,16 +154,7 @@ def:pub ReviewShell -> JsxElement {
                 </Card>
                     if workbooks
                     else None}
-                {<section className="flex flex-col gap-4">
-                    <h2 className="text-xl font-semibold">
-                        {"2 · Modelo propuesto - revísalo antes de generar"}
-                    </h2>
-                    {for entity in current.entities {
-                        <EntityCard key={entity.source_sheet} entity={entity}/>
-                    }}
-                </section>
-                    if current
-                    else None}
+                {proposalSection}
             </div>
         </div>;
 }
