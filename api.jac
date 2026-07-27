@@ -18,7 +18,15 @@ import from model.proposal {
     RelatesTo
 }
 import from model.infer { InferSchema }
-import from model.canonical { freeze_proposal, version_entities }
+import from generation.system {
+    GeneratedSystem,
+    approve_and_generate,
+    generated_system_for_checksum,
+    generated_modules,
+    generated_fields,
+    generated_records,
+    add_generated_record
+}
 
 obj FieldView {
     has name: str,
@@ -58,6 +66,45 @@ obj WorkbookView {
         imported_at: str,
         sheet_count: int = 0,
         proposal_count: int = 0;
+}
+
+obj GeneratedFieldView {
+    has name: str,
+        field_type: str,
+        input_type: str,
+        required: bool,
+        key_candidate: bool;
+}
+
+obj GeneratedRecordView {
+    has record_id: str,
+        values: dict[str, str],
+        created_at: str;
+}
+
+obj GeneratedEntityView {
+    has entity_key: str,
+        name: str,
+        route: str,
+        description: str = "",
+        fields: list[GeneratedFieldView] = [],
+        records: list[GeneratedRecordView] = [];
+}
+
+obj GeneratedSystemView {
+    has checksum: str,
+        name: str,
+        version_id: str,
+        manifest_hash: str,
+        generated_at: str,
+        generator_version: str,
+        entities: list[GeneratedEntityView] = [];
+}
+
+obj RecordMutationView {
+    has ok: bool,
+        error: str = "",
+        system: GeneratedSystemView | None = None;
 }
 
 def:pub upload_workbook(
@@ -101,6 +148,53 @@ def:pub proposal_view(wb_checksum: str) -> ProposalView | None {
         return None;
     }
     return _proposal_view(wb, p);
+}
+
+def:pub generate_system(
+    wb_checksum: str, system_name: str = ""
+) -> GeneratedSystemView | None {
+    matches = [root-->[?:Workbook, checksum==wb_checksum]];
+    if not matches {
+        return None;
+    }
+    wb = matches[0];
+    p = latest_proposal(wb);
+    if not isinstance(p, Proposal) {
+        return None;
+    }
+    generated_name = system_name.strip();
+    if generated_name == "" {
+        generated_name = wb.filename.rsplit(".", 1)[0] + " System";
+    }
+    system = approve_and_generate(p, generated_name);
+    return _generated_system_view(system);
+}
+
+def:pub generated_system_view(wb_checksum: str) -> GeneratedSystemView | None {
+    system = generated_system_for_checksum(wb_checksum);
+    if not isinstance(system, GeneratedSystem) {
+        return None;
+    }
+    return _generated_system_view(system);
+}
+
+def:pub create_generated_record(
+    wb_checksum: str, entity_key: str, values: dict[str, str]
+) -> RecordMutationView {
+    system = generated_system_for_checksum(wb_checksum);
+    if not isinstance(system, GeneratedSystem) {
+        return RecordMutationView(
+            ok=False, error="Generate the system before adding records."
+        );
+    }
+    try {
+        _ = add_generated_record(system, entity_key, values);
+        return RecordMutationView(ok=True, system=_generated_system_view(system));
+    } except ValueError as e {
+        return RecordMutationView(
+            ok=False, error=str(e), system=_generated_system_view(system)
+        );
+    }
 }
 
 def _proposal_view(wb: Workbook, p: Proposal) -> ProposalView {
@@ -151,26 +245,55 @@ def _proposal_view(wb: Workbook, p: Proposal) -> ProposalView {
     );
 }
 
-obj ApprovedView {
-    has version: int,
-        approved_at: str,
-        entity_names: list[str] = [];
-}
-
-def:pub approve_proposal(wb_checksum: str) -> ApprovedView | None {
-    matches = [root-->[?:Workbook, checksum==wb_checksum]];
-    if not matches {
-        return None;
+def _generated_system_view(system: GeneratedSystem) -> GeneratedSystemView {
+    entity_views: list[GeneratedEntityView] = [];
+    for module in generated_modules(system) {
+        field_views: list[GeneratedFieldView] = [];
+        for field in generated_fields(module) {
+            input_type = "text";
+            if field.field_type in ["integer", "decimal"] {
+                input_type = "number";
+            } elif field.field_type == "date" {
+                input_type = "date";
+            }
+            field_views.append(
+                GeneratedFieldView(
+                    name=field.name,
+                    field_type=field.field_type,
+                    input_type=input_type,
+                    required=field.required,
+                    key_candidate=field.key_candidate
+                )
+            );
+        }
+        record_views: list[GeneratedRecordView] = [];
+        for record in generated_records(module) {
+            record_views.append(
+                GeneratedRecordView(
+                    record_id=record.record_id,
+                    values=dict(record.values),
+                    created_at=record.created_at
+                )
+            );
+        }
+        entity_views.append(
+            GeneratedEntityView(
+                entity_key=module.entity_key,
+                name=module.name,
+                route=module.route,
+                description=module.description,
+                fields=field_views,
+                records=record_views
+            )
+        );
     }
-    wb = matches[0];
-    p = latest_proposal(wb);
-    if not isinstance(p, Proposal) {
-        return None;
-    }
-    v = freeze_proposal(wb, p);
-    return ApprovedView(
-        version=v.version,
-        approved_at=v.approved_at,
-        entity_names=[e.name for e in version_entities(v)]
+    return GeneratedSystemView(
+        checksum=system.source_checksum,
+        name=system.name,
+        version_id=system.version_id,
+        manifest_hash=system.manifest_hash,
+        generated_at=system.generated_at,
+        generator_version=system.generator_version,
+        entities=entity_views
     );
 }
