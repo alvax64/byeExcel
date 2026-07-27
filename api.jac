@@ -18,6 +18,7 @@ import from model.proposal {
     RelatesTo
 }
 import from model.infer { InferSchema }
+import from model.canonical { freeze_proposal, version_entities }
 
 obj FieldView {
     has name: str,
@@ -147,5 +148,29 @@ def _proposal_view(wb: Workbook, p: Proposal) -> ProposalView {
         created_at=p.created_at,
         enriched=p.enriched,
         entities=views
+    );
+}
+
+obj ApprovedView {
+    has version: int,
+        approved_at: str,
+        entity_names: list[str] = [];
+}
+
+def:pub approve_proposal(wb_checksum: str) -> ApprovedView | None {
+    matches = [root-->[?:Workbook, checksum==wb_checksum]];
+    if not matches {
+        return None;
+    }
+    wb = matches[0];
+    p = latest_proposal(wb);
+    if not isinstance(p, Proposal) {
+        return None;
+    }
+    v = freeze_proposal(wb, p);
+    return ApprovedView(
+        version=v.version,
+        approved_at=v.approved_at,
+        entity_names=[e.name for e in version_entities(v)]
     );
 }

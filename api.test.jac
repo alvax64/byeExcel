@@ -56,3 +56,25 @@ test "workbooks view lists uploads with proposal counts" {
 test "proposal view for unknown checksum is None" {
     assert proposal_view("cs-nope") is None;
 }
+
+test "approve freezes the latest proposal as a version" {
+    _ = upload_workbook("pedidos.xlsx", _xlsx_b64());
+    listed = [
+        v
+        for v in workbooks_view()
+        if v.filename == "pedidos.xlsx"
+    ];
+    approved = approve_proposal(listed[0].checksum);
+    assert approved is not None;
+    assert approved.version >= 1;
+    assert "Pedidos" in approved.entity_names;
+    assert "Clientes" in approved.entity_names;
+
+    again = approve_proposal(listed[0].checksum);
+    assert again is not None;
+    assert again.version == approved.version + 1;
+}
+
+test "approve unknown workbook is None" {
+    assert approve_proposal("cs-nope") is None;
+}

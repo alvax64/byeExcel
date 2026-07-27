@@ -25,18 +25,22 @@ sv import from .api {
     upload_workbook,
     workbooks_view,
     proposal_view,
+    approve_proposal,
     ProposalView,
     WorkbookView,
     EntityView,
     FieldView,
-    RelationView
+    RelationView,
+    ApprovedView
 }
 
 def:pub ReviewShell -> JsxElement {
     has workbooks: list[WorkbookView] = [],
         current: ProposalView | None = None,
+        approved: ApprovedView | None = None,
         businessContext: str = "",
         uploading: bool = False,
+        approving: bool = False,
         error: str = "";
 
     async can with entry {
@@ -77,6 +81,7 @@ def:pub ReviewShell -> JsxElement {
         }
         result = await upload_workbook(name, parts[1], businessContext);
         current = result;
+        approved = None;
         uploading = False;
         if result is None {
             error = "Could not infer a model from that file.";
@@ -86,6 +91,17 @@ def:pub ReviewShell -> JsxElement {
 
     async def openProposal(checksum: str) {
         current = await proposal_view(checksum);
+        approved = None;
+    }
+
+    async def approveNow {
+        cur: any = current;
+        if not cur {
+            return;
+        }
+        approving = True;
+        approved = await approve_proposal(cur.checksum);
+        approving = False;
     }
 
     # Precompute behind a truthiness guard. `ProposalView` is a server-side
@@ -94,13 +110,38 @@ def:pub ReviewShell -> JsxElement {
     proposalSection: any = None;
     if c {
         proposalSection = <section className="flex flex-col gap-4">
-            <h2 className="text-xl font-semibold">
-                {"2 · Proposed model - review it before generating"}
-            </h2>
+            <div className="flex items-center justify-between gap-4">
+                <h2 className="text-xl font-semibold">
+                    {"2 · Proposed model - review it before generating"}
+                </h2>
+                <Button onClick={approveNow} disabled={approving}>
+                    {"Approving..." if approving else "Approve model"}
+                </Button>
+            </div>
             {for entity in c.entities {
                 <EntityCard key={entity.source_sheet} entity={entity}/>
             }}
         </section>;
+    }
+
+    a = approved;
+    approvedSection: any = None;
+    if a {
+        approvedSection = <Card className="border-primary">
+            <CardHeader>
+                <CardTitle className="text-primary">
+                    {"Model v" + str(a.version) + " approved ✓"}
+                </CardTitle>
+                <CardDescription>
+                    {"Frozen as an immutable version with full provenance - ready for generation."}
+                </CardDescription>
+            </CardHeader>
+            <CardContent className="flex flex-wrap gap-2">
+                {for name in a.entity_names {
+                    <Badge key={name}>{name}</Badge>
+                }}
+            </CardContent>
+        </Card>;
     }
 
     return
@@ -158,6 +199,7 @@ def:pub ReviewShell -> JsxElement {
                     if workbooks
                     else None}
                 {proposalSection}
+                {approvedSection}
             </div>
         </div>;
 }
