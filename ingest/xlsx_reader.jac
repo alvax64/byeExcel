@@ -8,38 +8,38 @@ import openpyxl;
 import from datetime { datetime, date, timezone }
 import from os.path { basename }
 
-glob MAX_SHEETS: int = 25;
-glob MAX_COLS: int = 256;
-glob MAX_DATA_ROWS: int = 5000;
-glob MAX_SAMPLES: int = 20;
-glob MAX_CELL_TEXT: int = 120;
+glob MAX_SHEETS: int = 25,
+     MAX_COLS: int = 256,
+     MAX_DATA_ROWS: int = 5000,
+     MAX_SAMPLES: int = 20,
+     MAX_CELL_TEXT: int = 120;
 
 obj ColumnData {
     has header: str,
-        col_index: int;
-    has n_int: int = 0,
+        col_index: int,
+        n_int: int = 0,
         n_float: int = 0,
         n_bool: int = 0,
         n_date: int = 0,
         n_text: int = 0,
         n_formula: int = 0,
-        n_empty: int = 0;
-    has samples: list[str] = [];
+        n_empty: int = 0,
+        samples: list[str] = [];
 }
 
 obj SheetData {
     has name: str,
-        sheet_index: int;
-    has row_count: int = 0,
-        rows_truncated: bool = False;
-    has columns: list[ColumnData] = [];
+        sheet_index: int,
+        row_count: int = 0,
+        rows_truncated: bool = False,
+        columns: list[ColumnData] = [];
 }
 
 obj WorkbookData {
     has filename: str,
         checksum: str,
-        imported_at: str;
-    has sheets: list[SheetData] = [],
+        imported_at: str,
+        sheets: list[SheetData] = [],
         sheets_truncated: bool = False;
 }
 
@@ -47,13 +47,12 @@ def read_workbook_bytes(data: bytes, filename: str) -> WorkbookData {
     checksum = hashlib.sha256(data).hexdigest();
     imported_at = datetime.now(timezone.utc).isoformat();
     result = WorkbookData(
-        filename=filename,
-        checksum=checksum,
-        imported_at=imported_at
+        filename=filename, checksum=checksum, imported_at=imported_at
     );
 
     wb = openpyxl.load_workbook(io.BytesIO(data), read_only=True, data_only=False);
-    sheet_names = wb.sheetnames;
+    # openpyxl is an untyped Python boundary; its public API guarantees strings.
+    sheet_names: list[str] = wb.sheetnames as list[str];
     if len(sheet_names) > MAX_SHEETS {
         result.sheets_truncated = True;
         sheet_names = sheet_names[:MAX_SHEETS];
@@ -94,7 +93,7 @@ def _read_sheet(ws: any, name: str, sheet_index: int) -> SheetData {
     return sheet;
 }
 
-def _init_columns(sheet: SheetData, row: any) -> None {
+def _init_columns(sheet: SheetData, row: any) {
     col_index = 0;
     for value in row {
         if col_index >= MAX_COLS {
@@ -109,7 +108,7 @@ def _init_columns(sheet: SheetData, row: any) -> None {
     }
 }
 
-def _tally_row(sheet: SheetData, row: any) -> None {
+def _tally_row(sheet: SheetData, row: any) {
     col_index = 0;
     for value in row {
         if col_index >= len(sheet.columns) {
