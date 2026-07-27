@@ -65,6 +65,18 @@ test "re-ingesting the same checksum returns the existing node" {
     assert len([root-->[?:Workbook, checksum=="cs-idem"]]) == 1;
 }
 
+test "re-upload backfills rows for an older snapshot" {
+    old = _snapshot("cs-backfill");
+    old.sheets[0].records = [];
+    wb = ingest_workbook_data(old);
+    assert sheet_records(workbook_sheets(wb)[0]) == [];
+
+    refreshed = ingest_workbook_data(_snapshot("cs-backfill"));
+    rows = sheet_records(workbook_sheets(refreshed)[0]);
+    assert len(rows) == 2;
+    assert rows[0].values["Producto"] == "Polo";
+}
+
 test "different checksums create separate workbooks" {
     _ = ingest_workbook_data(_snapshot("cs-v1"));
     _ = ingest_workbook_data(_snapshot("cs-v2"));
