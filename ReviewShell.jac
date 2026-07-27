@@ -25,19 +25,33 @@ sv import from .api {
     upload_workbook,
     workbooks_view,
     proposal_view,
+    generate_system,
+    generated_system_view,
+    create_generated_record,
     ProposalView,
     WorkbookView,
     EntityView,
     FieldView,
-    RelationView
+    RelationView,
+    GeneratedSystemView,
+    GeneratedEntityView,
+    GeneratedFieldView,
+    GeneratedRecordView,
+    RecordMutationView
 }
 
 def:pub ReviewShell -> JsxElement {
     has workbooks: list[WorkbookView] = [],
         current: ProposalView | None = None,
+        generated: GeneratedSystemView | None = None,
         businessContext: str = "",
+        activeEntityKey: str = "",
+        draft: dict[str, str] = {},
         uploading: bool = False,
-        error: str = "";
+        generating: bool = False,
+        saving: bool = False,
+        error: str = "",
+        notice: str = "";
 
     async can with entry {
         workbooks = await workbooks_view();
@@ -77,6 +91,9 @@ def:pub ReviewShell -> JsxElement {
         }
         result = await upload_workbook(name, parts[1], businessContext);
         current = result;
+        generated = None;
+        activeEntityKey = "";
+        draft = {};
         uploading = False;
         if result is None {
             error = "Could not infer a model from that file.";
@@ -86,6 +103,84 @@ def:pub ReviewShell -> JsxElement {
 
     async def openProposal(checksum: str) {
         current = await proposal_view(checksum);
+        generated = await generated_system_view(checksum);
+        g = generated;
+        if g and g.entities {
+            activeEntityKey = g.entities[0].entity_key;
+        } else {
+            activeEntityKey = "";
+        }
+        draft = {};
+        error = "";
+        notice = "";
+    }
+
+    async def generateCurrent {
+        c = current;
+        if not c {
+            return;
+        }
+        generating = True;
+        error = "";
+        notice = "";
+        try {
+            result = await generate_system(c.checksum);
+            generated = result;
+            if result and result.entities {
+                activeEntityKey = result.entities[0].entity_key;
+                notice = "System generated. Add your first record below.";
+            } else {
+                error = "Could not generate a system from this proposal.";
+            }
+        } except Exception as e {
+            error = "Generation failed: " + str(e);
+        } finally {
+            generating = False;
+        }
+    }
+
+    def selectEntity(entityKey: str) {
+        activeEntityKey = entityKey;
+        draft = {};
+        error = "";
+        notice = "";
+    }
+
+    def handleGeneratedField(e: ChangeEvent) {
+        fieldName = String(e.target.name);
+        draft = {** draft, fieldName: String(e.target.value)};
+    }
+
+    def draftValue(fieldName: str) -> str {
+        return draft[fieldName] if fieldName in draft else "";
+    }
+
+    def recordValue(record: GeneratedRecordView, fieldName: str) -> str {
+        return record.values[fieldName] if fieldName in record.values else "";
+    }
+
+    async def saveGeneratedRecord {
+        g = generated;
+        if not g or activeEntityKey == "" {
+            return;
+        }
+        saving = True;
+        error = "";
+        notice = "";
+        try {
+            outcome = await create_generated_record(g.checksum, activeEntityKey, draft);
+            if outcome.ok and outcome.system {
+                generated = outcome.system;
+                draft = {};
+                notice = "Record saved.";
+            } else {
+                error = outcome.error or "Could not save the record.";
+            }
+        } except Exception as e {
+            error = "Could not save the record: " + str(e);
+        } finally {
+            saving = False;
+        }
     }
 
     # Precompute behind a truthiness guard. `ProposalView` is a server-side
@@ -100,6 +195,122 @@ def:pub ReviewShell -> JsxElement {
             {for entity in c.entities {
                 <EntityCard key={entity.source_sheet} entity={entity}/>
             }}
+            <Card className="border-primary/40 bg-primary/5">
+                <CardHeader>
+                    <CardTitle>{"Ready to build?"}</CardTitle>
+                    <CardDescription>
+                        {"Approve this version and generate a working data application. The source workbook remains unchanged."}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent>
+                    <Button onClick={generateCurrent} disabled={generating}>
+                        {"Generating..." if generating else "Approve & generate system"}
+                    </Button>
+                </CardContent>
+            </Card>
+        </section>;
+    }
+
+    g = generated;
+    generatedSection: any = None;
+    if g {
+        activeEntity: GeneratedEntityView | None = None;
+        for entity in g.entities {
+            if entity.entity_key == activeEntityKey {
+                activeEntity = entity;
+            }
+        }
+        if activeEntity is None and g.entities {
+            activeEntity = g.entities[0];
+        }
+
+        workspace: any = None;
+        entityForWorkspace = activeEntity;
+        if entityForWorkspace {
+            workspace = <Card>
+                <CardHeader>
+                    <CardTitle>{entityForWorkspace.name}</CardTitle>
+                    <CardDescription>
+                        {entityForWorkspace.description
+                        or "Generated module at " + entityForWorkspace.route}
+                    </CardDescription>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-6">
+                    <div className="grid gap-4 md:grid-cols-2">
+                        {for field in entityForWorkspace.fields {
+                            <div key={field.name} className="flex flex-col gap-2">
+                                <label className="text-sm font-medium">
+                                    {field.name}{" *" if field.required else ""}
+                                </label>
+                                <Input
+                                    name={field.name}
+                                    type={field.input_type}
+                                    value={draftValue(field.name)}
+                                    placeholder={field.field_type}
+                                    onChange={handleGeneratedField}
+                                />
+                            </div>
+                        }}
+                    </div>
+                    <div>
+                        <Button onClick={saveGeneratedRecord} disabled={saving}>
+                            {"Saving..." if saving else "Add record"}
+                        </Button>
+                    </div>
+                    {<Table>
+                        <TableHeader>
+                            <TableRow>
+                                {for field in entityForWorkspace.fields {
+                                    <TableHead key={field.name}>{field.name}</TableHead>
+                                }}
+                            </TableRow>
+                        </TableHeader>
+                        <TableBody>
+                            {for record in entityForWorkspace.records {
+                                <TableRow key={record.record_id}>
+                                    {for field in entityForWorkspace.fields {
+                                        <TableCell key={field.name}>
+                                            {recordValue(record, field.name)}
+                                        </TableCell>
+                                    }}
+                                </TableRow>
+                            }}
+                        </TableBody>
+                    </Table>
+                        if entityForWorkspace.records
+                        else <div
+                            className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground"
+                        >
+                            {"No records yet. Use the generated form above to add one."}
+                        </div>}
+                </CardContent>
+            </Card>;
+        }
+
+        generatedSection = <section className="flex flex-col gap-4">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                    <h2 className="text-xl font-semibold">{"3 · Generated system"}</h2>
+                    <p className="text-sm text-muted-foreground">
+                        {g.name + " · deterministic version " + g.version_id}
+                    </p>
+                </div>
+                <Badge variant="secondary">{str(len(g.entities)) + " modules"}</Badge>
+            </div>
+            <div className="flex flex-wrap gap-2">
+                {for entity in g.entities {
+                    <Button
+                        key={entity.entity_key}
+                        variant={"default"
+                            if entity.entity_key == activeEntityKey
+                            else "outline"}
+                        onClick={lambda { selectEntity(entity.entity_key); }}
+                    >
+                        {entity.name}
+                    </Button>
+                }}
+            </div>
+            {workspace}
         </section>;
     }
 
@@ -137,6 +348,9 @@ def:pub ReviewShell -> JsxElement {
                         {<p className="text-sm text-destructive">{error}</p>
                             if error
                             else None}
+                        {<p className="text-sm text-primary">{notice}</p>
+                            if notice
+                            else None}
                     </CardContent>
                 </Card>
                 {<Card>
@@ -158,6 +372,7 @@ def:pub ReviewShell -> JsxElement {
                     if workbooks
                     else None}
                 {proposalSection}
+                {generatedSection}
             </div>
         </div>;
 }
