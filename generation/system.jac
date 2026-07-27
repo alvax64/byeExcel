@@ -6,7 +6,14 @@
 import hashlib;
 import re;
 import from datetime { datetime, timezone }
-import from model.proposal { Proposal, proposal_entities, entity_fields, RelatesTo }
+import from ingest.source { Workbook, workbook_sheets, sheet_records }
+import from model.proposal {
+    Proposal,
+    ProposalFor,
+    proposal_entities,
+    entity_fields,
+    RelatesTo
+}
 
 node CanonicalModel {
     has source_checksum: str,
@@ -55,7 +62,8 @@ node GeneratedField {
     has name: str,
         field_type: str,
         required: bool,
-        key_candidate: bool;
+        key_candidate: bool,
+        relation_target: str = "";
 }
 
 node GeneratedRecord {
@@ -78,7 +86,9 @@ def approve_and_generate(p: Proposal, system_name: str) -> GeneratedSystem {
     proposal_hash = hashlib.sha256(manifest.encode("utf-8")).hexdigest();
     existing = [root-->[?:GeneratedSystem, manifest_hash==proposal_hash]];
     if existing {
-        return existing[-1];
+        system = existing[-1];
+        _hydrate_source_rows(p, system);
+        return system;
     }
 
     approved_at = datetime.now(timezone.utc).isoformat();
@@ -130,6 +140,15 @@ def approve_and_generate(p: Proposal, system_name: str) -> GeneratedSystem {
     root ++> system;
     system +>:GeneratedFrom:+> canonical;
 
+    relation_targets: dict[str, str] = {};
+    for source_entity in proposal_entities(p) {
+        for target in [source_entity->:RelatesTo:->] {
+            for rel in [edge source_entity->:RelatesTo:->target] {
+                relation_targets[source_entity.source_sheet + "|" + rel.via_field] = target.source_sheet;
+            }
+        }
+    }
+
     for canonical_entity in canonical_entities(canonical) {
         module = GeneratedModule(
             entity_key=canonical_entity.entity_key,
@@ -143,10 +162,14 @@ def approve_and_generate(p: Proposal, system_name: str) -> GeneratedSystem {
                 name=field.name,
                 field_type=field.field_type,
                 required=field.required,
-                key_candidate=field.key_candidate
+                key_candidate=field.key_candidate,
+                relation_target=relation_targets.get(
+                    canonical_entity.source_sheet + "|" + field.name, ""
+                )
             );
         }
     }
+    _hydrate_source_rows(p, system);
     return system;
 }
 
@@ -173,6 +196,35 @@ def generated_fields(module: GeneratedModule) -> list[GeneratedField] {
 
 def generated_records(module: GeneratedModule) -> list[GeneratedRecord] {
     return [module->:HasGeneratedRecord:->];
+}
+
+def relation_options(system: GeneratedSystem, target_key: str) -> list[str] {
+    target = find_generated_module(system, target_key);
+    if not isinstance(target, GeneratedModule) {
+        return [];
+    }
+    key_name = "";
+    fields = generated_fields(target);
+    for field in fields {
+        if field.key_candidate {
+            key_name = field.name;
+            break;
+        }
+    }
+    if key_name == "" and fields {
+        key_name = fields[0].name;
+    }
+    if key_name == "" {
+        return [];
+    }
+    options: list[str] = [];
+    for record in generated_records(target) {
+        value = record.values.get(key_name) or "";
+        if value != "" and value not in options {
+            options.append(value);
+        }
+    }
+    return options;
 }
 
 def find_generated_module(
@@ -243,6 +295,46 @@ def _validate_value(field: GeneratedField, value: str) {
         raise ValueError(
             "'" + field.name + "' must be a valid " + field.field_type + "."
         );
+    }
+}
+
+def _hydrate_source_rows(p: Proposal, system: GeneratedSystem) {
+    source_workbooks = [p->:ProposalFor:->];
+    if not source_workbooks {
+        return;
+    }
+    source_workbook = source_workbooks[0];
+    if not isinstance(source_workbook, Workbook) {
+        return;
+    }
+    for sheet in workbook_sheets(source_workbook) {
+        module = find_generated_module(system, sheet.name);
+        if not isinstance(module, GeneratedModule) {
+            continue;
+        }
+        source_module: GeneratedModule = module as GeneratedModule;
+        existing_ids = [
+            record.record_id for record in generated_records(source_module)
+        ];
+        fields = generated_fields(source_module);
+        for source_row in sheet_records(sheet) {
+            seed = system.source_checksum + sheet.name + str(source_row.row_index);
+            record_id = hashlib.sha256(seed.encode("utf-8")).hexdigest()[:12];
+            if record_id in existing_ids {
+                continue;
+            }
+            values: dict[str, str] = {};
+            for field in fields {
+                values[field.name] = source_row.values.get(field.name) or "";
+            }
+            if not any(values.values()) {
+                continue;
+            }
+            source_module +>:HasGeneratedRecord:+> GeneratedRecord(
+                record_id=record_id, values=values, created_at=system.generated_at
+            );
+            existing_ids.append(record_id);
+        }
     }
 }
 

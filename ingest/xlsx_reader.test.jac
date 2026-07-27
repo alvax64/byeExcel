@@ -44,6 +44,9 @@ test "reader extracts sheet and column facts" {
     assert clientes.columns[5].n_formula == 2;
     assert clientes.columns[5].n_empty == 1;
     assert "Ana" in clientes.columns[0].samples;
+    assert clientes.records[0]["Nombre"] == "Ana";
+    assert clientes.records[1]["Saldo"] == "900.25";
+    assert clientes.records[2]["Nombre"] == "Rosa";
 }
 
 test "reader names blank headers positionally" {

@@ -25,6 +25,7 @@ import from generation.system {
     generated_modules,
     generated_fields,
     generated_records,
+    relation_options,
     add_generated_record
 }
 
@@ -73,7 +74,9 @@ obj GeneratedFieldView {
         field_type: str,
         input_type: str,
         required: bool,
-        key_candidate: bool;
+        key_candidate: bool,
+        relation_target: str = "",
+        options: list[str] = [];
 }
 
 obj GeneratedRecordView {
@@ -251,7 +254,11 @@ def _generated_system_view(system: GeneratedSystem) -> GeneratedSystemView {
         field_views: list[GeneratedFieldView] = [];
         for field in generated_fields(module) {
             input_type = "text";
-            if field.field_type in ["integer", "decimal"] {
+            field_options: list[str] = [];
+            if field.relation_target != "" {
+                input_type = "select";
+                field_options = relation_options(system, field.relation_target);
+            } elif field.field_type in ["integer", "decimal"] {
                 input_type = "number";
             } elif field.field_type == "date" {
                 input_type = "date";
@@ -262,7 +269,9 @@ def _generated_system_view(system: GeneratedSystem) -> GeneratedSystemView {
                     field_type=field.field_type,
                     input_type=input_type,
                     required=field.required,
-                    key_candidate=field.key_candidate
+                    key_candidate=field.key_candidate,
+                    relation_target=field.relation_target,
+                    options=field_options
                 )
             );
         }

@@ -31,8 +31,14 @@ node Column {
         samples: list[str] = [];
 }
 
+node SourceRow {
+    has row_index: int,
+        values: dict[str, str];
+}
+
 edge HasSheet: Workbook --> Sheet {}
 edge HasColumn: Sheet --> Column {}
+edge HasSourceRow: Sheet --> SourceRow {}
 
 def ingest_workbook_data(data: WorkbookData) -> Workbook {
     # same checksum = same snapshot: re-importing an unchanged file is a no-op
@@ -71,6 +77,13 @@ def ingest_workbook_data(data: WorkbookData) -> Workbook {
             );
             sheet +>:HasColumn:+> column;
         }
+        row_index = 0;
+        for values in sheet_data.records {
+            sheet +>:HasSourceRow:+> SourceRow(
+                row_index=row_index, values=dict(values)
+            );
+            row_index += 1;
+        }
     }
     return wb;
 }
@@ -93,4 +106,8 @@ def workbook_sheets(wb: Workbook) -> list[Sheet] {
 
 def sheet_columns(sheet: Sheet) -> list[Column] {
     return [sheet->:HasColumn:->];
+}
+
+def sheet_records(sheet: Sheet) -> list[SourceRow] {
+    return [sheet->:HasSourceRow:->];
 }
