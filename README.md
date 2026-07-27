@@ -182,6 +182,30 @@ jac install
 jac start --dev main.jac
 ```
 
+### Environment configuration
+
+The repository includes a sanitized environment template:
+
+```sh
+cp secrets/byeexcel.env.example secrets/byeexcel.env
+chmod 600 secrets/byeexcel.env
+```
+
+Fill in the local copy, source it before starting Jac, and never commit it:
+
+```sh
+. secrets/byeexcel.env
+jac start --dev main.jac
+```
+
+- `JWT_SECRET` is required by the production server configuration.
+- `ANTHROPIC_API_KEY` enables Anthropic-backed schema suggestions.
+- `BYLLM_DEFAULT_MODEL` selects the byLLM model.
+
+On Aule, the deployment-only file lives at
+`/home/aule-admin/apps/byeexcel/secrets/byeexcel.env`; releases reference it
+without copying secrets into Git or release archives.
+
 Before opening a pull request, run the same local gates used by CI:
 
 ```sh
