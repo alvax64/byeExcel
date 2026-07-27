@@ -44,7 +44,9 @@ def ingest_workbook_data(data: WorkbookData) -> Workbook {
     # same checksum = same snapshot: re-importing an unchanged file is a no-op
     existing = [root-->[?:Workbook, checksum==data.checksum]];
     if existing {
-        return existing[0];
+        wb = existing[0];
+        _backfill_source_rows(wb, data);
+        return wb;
     }
 
     wb = Workbook(
@@ -110,4 +112,29 @@ def sheet_columns(sheet: Sheet) -> list[Column] {
 
 def sheet_records(sheet: Sheet) -> list[SourceRow] {
     return [sheet->:HasSourceRow:->];
+}
+
+def _backfill_source_rows(wb: Workbook, data: WorkbookData) {
+    sheets_by_name: dict[str, Sheet] = {};
+    for sheet in workbook_sheets(wb) {
+        sheets_by_name[sheet.name] = sheet;
+    }
+    for sheet_data in data.sheets {
+        sheet = sheets_by_name.get(sheet_data.name);
+        if not isinstance(sheet, Sheet) {
+            continue;
+        }
+        target_sheet: Sheet = sheet as Sheet;
+        known_indexes = [row.row_index for row in sheet_records(target_sheet)];
+        row_index = 0;
+        for values in sheet_data.records {
+            if row_index not in known_indexes {
+                target_sheet +>:HasSourceRow:+> SourceRow(
+                    row_index=row_index, values=dict(values)
+                );
+                known_indexes.append(row_index);
+            }
+            row_index += 1;
+        }
+    }
 }
