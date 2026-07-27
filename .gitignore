@@ -2,3 +2,10 @@
 .pytest_cache/
 dist/
 node_modules/
+
+# Local and deployment secrets. Keep only the sanitized example.
+.env
+.env.*
+!.env.example
+secrets/*
+!secrets/byeexcel.env.example
