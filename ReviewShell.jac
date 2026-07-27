@@ -148,7 +148,9 @@ def:pub ReviewShell -> JsxElement {
 
     def handleGeneratedField(e: ChangeEvent) {
         fieldName = String(e.target.name);
-        draft = {** draft, fieldName: String(e.target.value)};
+        nextDraft: dict[str, str] = {** draft};
+        nextDraft[fieldName] = String(e.target.value);
+        draft = nextDraft;
     }
 
     def draftValue(fieldName: str) -> str {
