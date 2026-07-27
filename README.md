@@ -42,6 +42,9 @@ excel2system is not meant to blindly convert every cell into code. Ambiguous
 relationships, destructive changes, and security-sensitive decisions should
 always require explicit user approval.
 
+The complete product description and functional requirements are maintained in
+[`docs/byeExcel_Product_Description_and_Functional_Requirements.md`](docs/byeExcel_Product_Description_and_Functional_Requirements.md).
+
 ## How it works
 
 1. **Ingest** — Read workbook metadata, sheet names, headers, types, formulas,
