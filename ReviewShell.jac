@@ -63,7 +63,7 @@ def:pub ReviewShell -> JsxElement {
         reader.onload = lambda { finishUpload(String(f.name), String(reader.result)); };
         reader.onerror = lambda {
             uploading = False;
-            error = "No se pudo leer el archivo.";
+            error = "Could not read the file.";
         };
         reader.readAsDataURL(f);
     }
@@ -72,14 +72,14 @@ def:pub ReviewShell -> JsxElement {
         parts = dataUrl.split(",");
         if len(parts) < 2 {
             uploading = False;
-            error = "Archivo vacío o ilegible.";
+            error = "Empty or unreadable file.";
             return;
         }
         result = await upload_workbook(name, parts[1], businessContext);
         current = result;
         uploading = False;
         if result is None {
-            error = "No se pudo inferir un modelo de ese archivo.";
+            error = "Could not infer a model from that file.";
         }
         workbooks = await workbooks_view();
     }
@@ -95,7 +95,7 @@ def:pub ReviewShell -> JsxElement {
     if c {
         proposalSection = <section className="flex flex-col gap-4">
             <h2 className="text-xl font-semibold">
-                {"2 · Modelo propuesto - revísalo antes de generar"}
+                {"2 · Proposed model - review it before generating"}
             </h2>
             {for entity in c.entities {
                 <EntityCard key={entity.source_sheet} entity={entity}/>
@@ -109,25 +109,25 @@ def:pub ReviewShell -> JsxElement {
                 <header>
                     <h1 className="text-2xl font-semibold">byeExcel</h1>
                     <p className="text-muted-foreground">
-                        {"De tu Excel a un sistema - con revisión humana en el medio."}
+                        {"From your spreadsheet to a system - with human review in the middle."}
                     </p>
                 </header>
                 <Card>
                     <CardHeader>
-                        <CardTitle>{"1 · Sube tu Excel"}</CardTitle>
+                        <CardTitle>{"1 · Upload your Excel"}</CardTitle>
                         <CardDescription>
-                            {"Cuéntanos de tu negocio (opcional) y sube el .xlsx que usas hoy."}
+                            {"Tell us about your business (optional) and upload the .xlsx you use today."}
                         </CardDescription>
                     </CardHeader>
                     <CardContent className="flex flex-col gap-3">
                         <Textarea
-                            placeholder="¿De qué es tu negocio? Mejora los nombres sugeridos por la IA."
+                            placeholder="What is your business about? This improves the AI-suggested names."
                             value={businessContext}
                             onChange={handleContext}
                         />
                         <Input type="file" accept=".xlsx" onChange={handleFile}/>
                         {<p className="text-sm text-muted-foreground">
-                            {"Analizando tu Excel..."}
+                            {"Analyzing your spreadsheet..."}
                         </p>
                             if uploading
                             else None}
@@ -138,7 +138,7 @@ def:pub ReviewShell -> JsxElement {
                 </Card>
                 {<Card>
                     <CardHeader>
-                        <CardTitle>{"Workbooks importados"}</CardTitle>
+                        <CardTitle>{"Imported workbooks"}</CardTitle>
                     </CardHeader>
                     <CardContent className="flex flex-wrap gap-2">
                         {for wb in workbooks {
@@ -147,7 +147,7 @@ def:pub ReviewShell -> JsxElement {
                                 variant="outline"
                                 onClick={lambda { openProposal(wb.checksum); }}
                             >
-                                {wb.filename + " (" + str(wb.sheet_count) + " hojas)"}
+                                {wb.filename + " (" + str(wb.sheet_count) + " sheets)"}
                             </Button>
                         }}
                     </CardContent>
@@ -165,7 +165,7 @@ def:pub EntityCard(entity: EntityView) -> JsxElement {
             <CardHeader>
                 <CardTitle className="flex items-center gap-2">
                     {entity.suggested_name or entity.name}
-                    <Badge variant="secondary">{"hoja: " + entity.source_sheet}</Badge>
+                    <Badge variant="secondary">{"sheet: " + entity.source_sheet}</Badge>
                 </CardTitle>
                 {<CardDescription>{entity.description}</CardDescription>
                     if entity.description
@@ -175,10 +175,10 @@ def:pub EntityCard(entity: EntityView) -> JsxElement {
                 <Table>
                     <TableHeader>
                         <TableRow>
-                            <TableHead>{"Campo"}</TableHead>
-                            <TableHead>{"Tipo"}</TableHead>
-                            <TableHead>{"Requerido"}</TableHead>
-                            <TableHead>{"Clave"}</TableHead>
+                            <TableHead>{"Field"}</TableHead>
+                            <TableHead>{"Type"}</TableHead>
+                            <TableHead>{"Required"}</TableHead>
+                            <TableHead>{"Key"}</TableHead>
                         </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -188,9 +188,9 @@ def:pub EntityCard(entity: EntityView) -> JsxElement {
                                 <TableCell>
                                     <Badge variant="outline">{f.field_type}</Badge>
                                 </TableCell>
-                                <TableCell>{"sí" if f.required else "no"}</TableCell>
+                                <TableCell>{"yes" if f.required else "no"}</TableCell>
                                 <TableCell>
-                                    {"clave" if f.key_candidate else ""}
+                                    {"key" if f.key_candidate else ""}
                                 </TableCell>
                             </TableRow>
                         }}
@@ -198,7 +198,7 @@ def:pub EntityCard(entity: EntityView) -> JsxElement {
                 </Table>
                 {for r in entity.relations {
                     <p key={r.via_field} className="text-sm text-muted-foreground">
-                        {"→ se relaciona con " + r.target_entity + " vía '" + r.via_field + "' (" + r.evidence + ")"}
+                        {"→ relates to " + r.target_entity + " via '" + r.via_field + "' (" + r.evidence + ")"}
                     </p>
                 }}
             </CardContent>
