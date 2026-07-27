@@ -53,6 +53,7 @@ sem EntitySuggestion.description = "One short sentence: what one row of this she
 def suggest_entities(
     business_context: str, sheets: list[SheetBrief]
 ) -> list[EntitySuggestion] by llm(temperature=0.2);
+
 sem suggest_entities = "Given the sheets of a small-business spreadsheet and the owner's description of their business, propose one entity per sheet: a clean singular name and a one-line description. Suggestions only - a human reviews them.";
 sem suggest_entities.business_context = "The owner's own words about what the workbook is used for. May be empty.";
 sem suggest_entities.sheets = "One brief per sheet: name, headers, and sample values.";
