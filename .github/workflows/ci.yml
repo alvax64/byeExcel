@@ -1,0 +1,101 @@
+name: Jac CI
+
+on:
+  pull_request:
+  push:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: jac-ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
+  cancel-in-progress: true
+
+env:
+  JAC_VERSION: "0.34.7"
+  JAC_LINUX_X86_64_SHA256: "5367c32a491a8374831e59939ac1e79f32c67bc3758b4158905c80b10d9aedde"
+
+jobs:
+  validate:
+    name: Format, check, build, smoke
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Install pinned Jac toolchain
+        shell: bash
+        run: |
+          set -euo pipefail
+          jac_bin_dir="${RUNNER_TEMP}/jac-bin"
+          mkdir -p "${jac_bin_dir}"
+          asset="jac-${JAC_VERSION}-linux-x86_64"
+          curl --fail --silent --show-error --location --retry 3 \
+            "https://github.com/Jaseci-Labs/jac/releases/download/v${JAC_VERSION}/${asset}" \
+            --output "${jac_bin_dir}/jac"
+          printf '%s  %s\n' \
+            "${JAC_LINUX_X86_64_SHA256}" \
+            "${jac_bin_dir}/jac" \
+            | sha256sum --check --strict
+          chmod +x "${jac_bin_dir}/jac"
+          echo "${jac_bin_dir}" >> "${GITHUB_PATH}"
+
+      - name: Report toolchain
+        run: jac --version
+
+      - name: Install project dependencies
+        run: jac install
+
+      - name: Enforce formatting
+        run: jac fmt . --check
+
+      - name: Enforce lint rules
+        run: jac check . --lint
+
+      - name: Run whole-program gate
+        run: jac build --check_only
+
+      - name: Seal application
+        run: jac build
+
+      - name: Smoke-test sealed application
+        shell: bash
+        run: |
+          set -euo pipefail
+          app_log="${RUNNER_TEMP}/byeexcel.log"
+          index_html="${RUNNER_TEMP}/byeexcel-index.html"
+
+          jac start dist/byeExcel.jab --port 8765 >"${app_log}" 2>&1 &
+          app_pid=$!
+
+          cleanup() {
+            kill "${app_pid}" 2>/dev/null || true
+            wait "${app_pid}" 2>/dev/null || true
+          }
+          trap cleanup EXIT
+
+          ready=false
+          for _ in $(seq 1 30); do
+            if curl --fail --silent --show-error \
+              --output "${index_html}" \
+              http://127.0.0.1:8765/; then
+              ready=true
+              break
+            fi
+
+            if ! kill -0 "${app_pid}" 2>/dev/null; then
+              cat "${app_log}"
+              exit 1
+            fi
+            sleep 1
+          done
+
+          if [[ "${ready}" != "true" ]]; then
+            cat "${app_log}"
+            exit 1
+          fi
+
+          grep --fixed-strings 'id="root"' "${index_html}"
+          grep --fixed-strings 'id="__jac_init__"' "${index_html}"

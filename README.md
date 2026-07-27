@@ -5,6 +5,7 @@
 
 [![Project status: repository bootstrap](https://img.shields.io/badge/status-repository%20bootstrap-f59e0b)](#project-status)
 [![Built with Jac](https://img.shields.io/badge/built%20with-Jac-6f42c1)](https://jaclang.org/)
+[![Jac CI](https://github.com/alvax64/byeExcel/actions/workflows/ci.yml/badge.svg)](https://github.com/alvax64/byeExcel/actions/workflows/ci.yml)
 
 Most small and medium-sized businesses already have software: their Excel
 workbooks. Those files encode data models, business rules, relationships, and
@@ -41,6 +42,9 @@ excel2system is not meant to blindly convert every cell into code. Ambiguous
 relationships, destructive changes, and security-sensitive decisions should
 always require explicit user approval.
 
+The complete product description and functional requirements are maintained in
+[`docs/byeExcel_Product_Description_and_Functional_Requirements.md`](docs/byeExcel_Product_Description_and_Functional_Requirements.md).
+
 ## How it works
 
 1. **Ingest** — Read workbook metadata, sheet names, headers, types, formulas,
@@ -76,6 +80,9 @@ flowchart LR
 The canonical domain graph is the boundary between inference and generation.
 The generator should consume an approved, versioned model—not raw inference
 output. That keeps generation deterministic, testable, and auditable.
+
+The detailed module boundaries, lifecycle invariants, Jac mapping, and decision
+log live in [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
 ## Why Jac
 
@@ -147,9 +154,10 @@ The initial graph can be organized around these archetypes:
 
 ## Project status
 
-This public repository is at the **bootstrap stage**. The product scope and
-target architecture are documented here; runnable source, tests, and release
-claims will be tracked as they are merged into the repository.
+This public repository is at the **bootstrap stage**. It contains the runnable
+official `jac-shadcn` scaffold, the architectural baseline, and reproducible CI
+gates. Workbook ingestion, inference, generation, and production release claims
+have not been implemented yet.
 
 Suggested delivery milestones:
 
@@ -163,16 +171,23 @@ Suggested delivery milestones:
 
 ## Getting started
 
-For now, clone the repository and follow the work through issues and pull
-requests:
+Install Jac `0.34.7`, then clone and start the development server:
 
 ```sh
 git clone https://github.com/alvax64/byeExcel.git
 cd byeExcel
+jac install
+jac start --dev main.jac
 ```
 
-The runnable development commands will be added with the scaffold so the README
-never advertises a setup that has not yet landed.
+Before opening a pull request, run the same local gates used by CI:
+
+```sh
+jac fmt . --check
+jac check . --lint
+jac build --check_only
+jac build
+```
 
 ## Contributing
 
