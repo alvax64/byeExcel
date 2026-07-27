@@ -31,6 +31,10 @@ def _snapshot(checksum: str) -> WorkbookData {
                         n_float=2,
                         samples=["59.9", "35.0"]
                     )
+                ],
+                records=[
+                    {"Producto": "Polo", "Precio": "59.9"},
+                    {"Producto": "Gorra", "Precio": "35.0"}
                 ]
             ),
             SheetData(name="Vacia", sheet_index=1)
@@ -47,6 +51,10 @@ test "ingest builds the snapshot graph" {
     assert [c.header for c in cols] == ["Producto", "Precio"];
     assert cols[1].n_float == 2;
     assert cols[0].samples == ["Polo", "Gorra"];
+    assert [r.values["Producto"] for r in sheet_records(sheets[0])] == [
+        "Polo",
+        "Gorra"
+    ];
     assert sheet_columns(sheets[1]) == [];
 }
 

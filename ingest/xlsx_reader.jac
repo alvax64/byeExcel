@@ -1,6 +1,7 @@
 # Typed boundary around openpyxl: the ONLY module allowed to touch spreadsheet
 # parsing. Workbooks are untrusted input, so reads are read_only (no macro
-# execution), capped in size, and sampled instead of copied.
+# execution), capped in size, and retain only normalized cell values needed to
+# seed the generated system.
 
 import hashlib;
 import io;
@@ -32,7 +33,8 @@ obj SheetData {
         sheet_index: int,
         row_count: int = 0,
         rows_truncated: bool = False,
-        columns: list[ColumnData] = [];
+        columns: list[ColumnData] = [],
+        records: list[dict[str, str]] = [];
 }
 
 obj WorkbookData {
@@ -88,6 +90,10 @@ def _read_sheet(ws: any, name: str, sheet_index: int) -> SheetData {
             break;
         }
         _tally_row(sheet, row);
+        values = _record_values(sheet, row);
+        if values {
+            sheet.records.append(values);
+        }
         sheet.row_count += 1;
     }
     return sheet;
@@ -122,6 +128,24 @@ def _tally_row(sheet: SheetData, row: any) {
         sheet.columns[col_index].n_empty += 1;
         col_index += 1;
     }
+}
+
+def _record_values(sheet: SheetData, row: any) -> dict[str, str] {
+    values: dict[str, str] = {};
+    col_index = 0;
+    for value in row {
+        if col_index >= len(sheet.columns) {
+            break;
+        }
+        if value is not None {
+            text = _cell_text(value);
+            if text != "" {
+                values[sheet.columns[col_index].header] = text;
+            }
+        }
+        col_index += 1;
+    }
+    return values;
 }
 
 def _tally_cell(col: ColumnData, value: any) -> None {

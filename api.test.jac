@@ -68,6 +68,10 @@ test "approved proposal generates a usable system" {
     assert len(generated.version_id) == 12;
     assert [e.entity_key for e in generated.entities] == ["Pedidos", "Clientes"];
     assert [f.name for f in generated.entities[0].fields] == ["ID", "Cliente", "Total"];
+    assert len(generated.entities[0].records) == 2;
+    assert generated.entities[0].records[0].values["Cliente"] == "Ana";
+    assert generated.entities[0].fields[1].input_type == "select";
+    assert generated.entities[0].fields[1].relation_target == "Clientes";
 
     reopened = generated_system_view(proposal.checksum);
     assert reopened is not None;
@@ -85,8 +89,8 @@ test "generated module accepts and validates records" {
     );
     assert saved.ok;
     assert saved.system is not None;
-    assert len(saved.system.entities[0].records) == 1;
-    assert saved.system.entities[0].records[0].values["Cliente"] == "Rosa";
+    assert len(saved.system.entities[0].records) == 3;
+    assert saved.system.entities[0].records[-1].values["Cliente"] == "Rosa";
 
     invalid = create_generated_record(
         proposal.checksum,

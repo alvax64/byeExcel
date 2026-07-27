@@ -244,13 +244,29 @@ def:pub ReviewShell -> JsxElement {
                                 <label className="text-sm font-medium">
                                     {field.name}{" *" if field.required else ""}
                                 </label>
-                                <Input
+                                {<select
                                     name={field.name}
-                                    type={field.input_type}
                                     value={draftValue(field.name)}
-                                    placeholder={field.field_type}
                                     onChange={handleGeneratedField}
-                                />
+                                    className="border-input bg-background rounded-md border px-3 py-2 text-sm"
+                                >
+                                    <option value="">
+                                        {"Select " + field.relation_target}
+                                    </option>
+                                    {for option in field.options {
+                                        <option key={option} value={option}>
+                                            {option}
+                                        </option>
+                                    }}
+                                </select>
+                                    if field.input_type == "select"
+                                    else <Input
+                                        name={field.name}
+                                        type={field.input_type}
+                                        value={draftValue(field.name)}
+                                        placeholder={field.field_type}
+                                        onChange={handleGeneratedField}
+                                    />}
                             </div>
                         }}
                     </div>
