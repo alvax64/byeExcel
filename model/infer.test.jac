@@ -7,8 +7,13 @@ import from jaclang.byllm.lib { MockLLM }
 import from ingest.xlsx_reader { WorkbookData, SheetData, ColumnData }
 import from ingest.source { ingest_workbook_data }
 import from model.proposal {
-    FieldType, proposal_entities, entity_fields, entity_source_sheet,
-    field_source_column, workbook_proposals, RelatesTo
+    FieldType,
+    proposal_entities,
+    entity_fields,
+    entity_source_sheet,
+    field_source_column,
+    workbook_proposals,
+    RelatesTo
 }
 
 def _tienda_snapshot(checksum: str) -> WorkbookData {
@@ -22,11 +27,29 @@ def _tienda_snapshot(checksum: str) -> WorkbookData {
                 sheet_index=0,
                 row_count=3,
                 columns=[
-                    ColumnData(header="ID", col_index=0, n_int=3, samples=["1", "2", "3"]),
-                    ColumnData(header="Cliente", col_index=1, n_text=3, samples=["Ana", "Luis"]),
-                    ColumnData(header="Monto", col_index=2, n_int=1, n_float=2, samples=["100", "59.9"]),
-                    ColumnData(header="Fecha", col_index=3, n_date=3, samples=["2026-01-05"]),
-                    ColumnData(header="Nota", col_index=4, n_text=2, n_empty=1, samples=["al contado"])
+                    ColumnData(
+                        header="ID", col_index=0, n_int=3, samples=["1", "2", "3"]
+                    ),
+                    ColumnData(
+                        header="Cliente", col_index=1, n_text=3, samples=["Ana", "Luis"]
+                    ),
+                    ColumnData(
+                        header="Monto",
+                        col_index=2,
+                        n_int=1,
+                        n_float=2,
+                        samples=["100", "59.9"]
+                    ),
+                    ColumnData(
+                        header="Fecha", col_index=3, n_date=3, samples=["2026-01-05"]
+                    ),
+                    ColumnData(
+                        header="Nota",
+                        col_index=4,
+                        n_text=2,
+                        n_empty=1,
+                        samples=["al contado"]
+                    )
                 ]
             ),
             SheetData(
@@ -34,7 +57,9 @@ def _tienda_snapshot(checksum: str) -> WorkbookData {
                 sheet_index=1,
                 row_count=2,
                 columns=[
-                    ColumnData(header="DNI", col_index=0, n_int=2, samples=["45678901"]),
+                    ColumnData(
+                        header="DNI", col_index=0, n_int=2, samples=["45678901"]
+                    ),
                     ColumnData(header="Nombre", col_index=1, n_text=2, samples=["Ana"])
                 ]
             )
@@ -71,11 +96,11 @@ test "relations are proposed from column-to-sheet name match" {
     result = root spawn InferSchema(checksum="cs-infer-2");
     entities = proposal_entities(result.reports[0]);
 
-    linked = [entities[0] ->:RelatesTo:->];
+    linked = [entities[0]->:RelatesTo:->];
     assert len(linked) == 1;
     assert linked[0] is entities[1];
 
-    rels = [edge entities[0] ->:RelatesTo:->];
+    rels = [edge entities[0]->:RelatesTo:->];
     assert rels[0].via_field == "Cliente";
     assert rels[0].confidence > 0.0;
     assert "Clientes" in rels[0].evidence;

@@ -49,28 +49,28 @@ edge RelatesTo: Entity --> Entity {
 }
 
 def workbook_proposals(wb: Workbook) -> list[Proposal] {
-    return [wb <-:ProposalFor:<-];
+    return [wb<-:ProposalFor:<-];
 }
 
 def latest_proposal(wb: Workbook) -> Proposal | None {
-    proposals = [wb <-:ProposalFor:<-];
+    proposals = [wb<-:ProposalFor:<-];
     return proposals[-1] if proposals else None;
 }
 
 def proposal_entities(p: Proposal) -> list[Entity] {
-    return [p ->:HasEntity:->];
+    return [p->:HasEntity:->];
 }
 
 def entity_fields(entity: Entity) -> list[Field] {
-    return [entity ->:HasField:->];
+    return [entity->:HasField:->];
 }
 
 def entity_source_sheet(entity: Entity) -> Sheet | None {
-    sources = [entity ->:FromSheet:->];
+    sources = [entity->:FromSheet:->];
     return sources[0] if sources else None;
 }
 
 def field_source_column(field: Field) -> Column | None {
-    sources = [field ->:FromColumn:->];
+    sources = [field->:FromColumn:->];
     return sources[0] if sources else None;
 }

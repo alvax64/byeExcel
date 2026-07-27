@@ -9,11 +9,21 @@ import from datetime { datetime, timezone }
 import from jaclang.byllm.lib { Model }
 import from ingest.source { Workbook, Sheet, Column }
 import from model.proposal {
-    FieldType, Proposal, Entity, Field,
-    ProposalFor, HasEntity, HasField, FromSheet, FromColumn, RelatesTo
+    FieldType,
+    Proposal,
+    Entity,
+    Field,
+    ProposalFor,
+    HasEntity,
+    HasField,
+    FromSheet,
+    FromColumn,
+    RelatesTo
 }
 
-glob llm: Model = Model(model_name=os.environ.get("BYLLM_DEFAULT_MODEL", "gpt-4o-mini"));
+glob llm: Model = Model(
+         model_name=os.environ.get("BYLLM_DEFAULT_MODEL", "gpt-4o-mini")
+     );
 
 obj TypeGuess {
     has field_type: FieldType,
@@ -25,6 +35,7 @@ obj SheetBrief {
         headers: list[str],
         sample_values: list[str];
 }
+
 sem SheetBrief.sheet_name = "Name of the spreadsheet sheet as the business wrote it.";
 sem SheetBrief.headers = "Column headers of the sheet, in order.";
 sem SheetBrief.sample_values = "A few representative cell values from the sheet.";
@@ -34,25 +45,28 @@ obj EntitySuggestion {
         entity_name: str,
         description: str;
 }
+
 sem EntitySuggestion.sheet_name = "The sheet this suggestion is for - copy it verbatim from the input.";
 sem EntitySuggestion.entity_name = "Clean singular entity name in the sheet's language, PascalCase, e.g. 'Venta' for a 'Ventas' sheet.";
 sem EntitySuggestion.description = "One short sentence: what one row of this sheet represents for the business.";
 
-def suggest_entities(business_context: str, sheets: list[SheetBrief]) -> list[EntitySuggestion] by llm(temperature=0.2);
+def suggest_entities(
+    business_context: str, sheets: list[SheetBrief]
+) -> list[EntitySuggestion] by llm(temperature=0.2);
 sem suggest_entities = "Given the sheets of a small-business spreadsheet and the owner's description of their business, propose one entity per sheet: a clean singular name and a one-line description. Suggestions only - a human reviews them.";
 sem suggest_entities.business_context = "The owner's own words about what the workbook is used for. May be empty.";
 sem suggest_entities.sheets = "One brief per sheet: name, headers, and sample values.";
 
 walker InferSchema {
-    has checksum: str;
-    has business_context: str = "",
+    has checksum: str,
+        business_context: str = "",
         enrich: bool = False,
         reports: list[Proposal] = [],
         proposal: Proposal | None = None,
         entity_by_sheet: dict[str, Entity] = {};
 
     can locate with Root entry {
-        target = [root -->[?:Workbook, checksum == self.checksum]];
+        target = [root-->[?:Workbook, checksum==self.checksum]];
         if not target {
             disengage;
         }
@@ -68,7 +82,7 @@ walker InferSchema {
         root ++> p;
         p +>:ProposalFor:+> here;
         self.proposal = p;
-        visit [here ->:HasSheet:->];
+        visit [here->:HasSheet:->];
     }
 
     can map_sheet with Sheet entry {
@@ -80,13 +94,13 @@ walker InferSchema {
         p +>:HasEntity:+> entity;
         entity +>:FromSheet:+> here;
         self.entity_by_sheet[jid(here)] = entity;
-        visit [here ->:HasColumn:->];
+        visit [here->:HasColumn:->];
     }
 
     can map_column with Column entry {
         # BFS may interleave columns of different sheets: resolve the parent
         # sheet through the graph, never through "current sheet" walker state.
-        parents = [here <-:HasColumn:<-];
+        parents = [here<-:HasColumn:<-];
         if not parents {
             skip;
         }
@@ -145,7 +159,13 @@ def _guess_type(col: Column) -> TypeGuess {
 
 def _normalize(text: str) -> str {
     decomposed = unicodedata.normalize("NFD", text.lower().strip());
-    cleaned = "".join([ch for ch in decomposed if not unicodedata.combining(ch)]);
+    cleaned = "".join(
+        [
+            ch
+            for ch in decomposed
+            if not unicodedata.combining(ch)
+        ]
+    );
     return cleaned.replace(" ", "_");
 }
 
@@ -175,10 +195,10 @@ def _matches_entity(stem: str, other: Entity) -> bool {
     return stem == other_name or f"{stem}s" == other_name or stem == f"{other_name}s";
 }
 
-def _link_relations(p: Proposal) -> None {
-    entities = [p ->:HasEntity:->];
+def _link_relations(p: Proposal) {
+    entities = [p->:HasEntity:->];
     for entity in entities {
-        for field in [entity ->:HasField:->] {
+        for field in [entity->:HasField:->] {
             stem = _relation_stem(field.name);
             if stem == "" {
                 continue;
@@ -200,22 +220,24 @@ def _link_relations(p: Proposal) -> None {
 }
 
 def _enrich_proposal(p: Proposal, business_context: str) -> None {
-    entities = [p ->:HasEntity:->];
+    entities = [p->:HasEntity:->];
     briefs: list[SheetBrief] = [];
     for entity in entities {
-        fields = [entity ->:HasField:->];
+        fields = [entity->:HasField:->];
         headers = [f.name for f in fields];
         samples: list[str] = [];
         for f in fields {
-            for col in [f ->:FromColumn:->] {
+            for col in [f->:FromColumn:->] {
                 samples.extend(col.samples[:2]);
             }
         }
-        briefs.append(SheetBrief(
-            sheet_name=entity.source_sheet,
-            headers=headers,
-            sample_values=samples[:8]
-        ));
+        briefs.append(
+            SheetBrief(
+                sheet_name=entity.source_sheet,
+                headers=headers,
+                sample_values=samples[:8]
+            )
+        );
     }
     if not briefs {
         return;
