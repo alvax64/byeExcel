@@ -143,7 +143,7 @@ test "mockllm suggestions land on entities" {
                 ]
             ]
         }
-    );
+    ) as Model;
     _ = ingest_workbook_data(_tienda_snapshot("cs-infer-4"));
     result = root spawn InferSchema(
         checksum="cs-infer-4",

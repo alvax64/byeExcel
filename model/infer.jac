@@ -21,8 +21,7 @@ import from model.proposal {
     RelatesTo
 }
 
-# typed `any` (not Model) so the test annex can rebind it to MockLLM
-glob llm: any = Model(
+glob llm: Model = Model(
          model_name=os.environ.get("BYLLM_DEFAULT_MODEL", "gpt-4o-mini")
      );
 
