@@ -88,11 +88,11 @@ def:pub ReviewShell -> JsxElement {
         current = await proposal_view(checksum);
     }
 
-    # precomputed so the optional narrows via isinstance - the type checker
-    # does not narrow `current` inside a trailing JSX ternary (E1099)
+    # Precompute behind a truthiness guard. `ProposalView` is a server-side
+    # type and must not be referenced as a runtime JavaScript constructor.
     c = current;
     proposalSection: any = None;
-    if isinstance(c, ProposalView) {
+    if c {
         proposalSection = <section className="flex flex-col gap-4">
             <h2 className="text-xl font-semibold">
                 {"2 · Modelo propuesto - revísalo antes de generar"}
