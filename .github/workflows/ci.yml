@@ -3,14 +3,12 @@ name: Jac CI
 on:
   pull_request:
   push:
-    branches:
-      - main
 
 permissions:
   contents: read
 
 concurrency:
-  group: jac-ci-${{ github.workflow }}-${{ github.ref }}
+  group: jac-ci-${{ github.workflow }}-${{ github.event.pull_request.head.sha || github.sha }}
   cancel-in-progress: true
 
 env:
