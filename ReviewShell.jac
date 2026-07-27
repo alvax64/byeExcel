@@ -106,10 +106,13 @@ def:pub ReviewShell -> JsxElement {
     return
         <div className="min-h-screen bg-background text-foreground p-6">
             <div className="mx-auto flex max-w-5xl flex-col gap-6">
-                <header>
-                    <h1 className="text-2xl font-semibold">byeExcel</h1>
-                    <p className="text-muted-foreground">
-                        {"From your spreadsheet to a system - with human review in the middle."}
+                <header className="flex flex-col gap-2 py-8 text-center">
+                    <h1 className="text-5xl font-bold tracking-tight">
+                        {"bye"}
+                        <span className="text-primary">{"Excel"}</span>
+                    </h1>
+                    <p className="text-lg text-muted-foreground">
+                        {"Turn the spreadsheet that runs your business into real software - with human review in the middle."}
                     </p>
                 </header>
                 <Card>
