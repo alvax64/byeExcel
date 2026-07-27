@@ -54,6 +54,9 @@ jobs:
       - name: Enforce lint rules
         run: jac check . --lint
 
+      - name: Run Jac tests
+        run: jac test
+
       - name: Run whole-program gate
         run: jac build --check_only
 

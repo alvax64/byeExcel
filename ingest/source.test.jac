@@ -54,14 +54,14 @@ test "re-ingesting the same checksum returns the existing node" {
     first = ingest_workbook_data(_snapshot("cs-idem"));
     second = ingest_workbook_data(_snapshot("cs-idem"));
     assert jid(first) == jid(second);
-    assert len([root -->[?:Workbook, checksum == "cs-idem"]]) == 1;
+    assert len([root-->[?:Workbook, checksum=="cs-idem"]]) == 1;
 }
 
 test "different checksums create separate workbooks" {
     _ = ingest_workbook_data(_snapshot("cs-v1"));
     _ = ingest_workbook_data(_snapshot("cs-v2"));
-    assert len([root -->[?:Workbook, checksum == "cs-v1"]]) == 1;
-    assert len([root -->[?:Workbook, checksum == "cs-v2"]]) == 1;
+    assert len([root-->[?:Workbook, checksum=="cs-v1"]]) == 1;
+    assert len([root-->[?:Workbook, checksum=="cs-v2"]]) == 1;
 }
 
 test "ingest from an xlsx file end to end" {

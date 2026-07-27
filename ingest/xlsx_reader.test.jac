@@ -5,7 +5,7 @@ import io;
 import openpyxl;
 import from datetime { datetime }
 
-def _fixture_clientes() -> bytes {
+def _fixture_clientes -> bytes {
     wb = openpyxl.Workbook();
     ws = wb.active;
     ws.title = "Clientes";

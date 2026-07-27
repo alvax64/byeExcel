@@ -44,6 +44,8 @@ always require explicit user approval.
 
 The complete product description and functional requirements are maintained in
 [`docs/byeExcel_Product_Description_and_Functional_Requirements.md`](docs/byeExcel_Product_Description_and_Functional_Requirements.md).
+The project submission rubric is available in
+[`docs/jachacks-sf-2026-rubric.pdf`](docs/jachacks-sf-2026-rubric.pdf).
 
 ## How it works
 
